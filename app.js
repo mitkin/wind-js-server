@@ -14,8 +14,8 @@ var baseDir ='http://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_1p00.pl';
 var whitelist = [
 	'http://localhost:63342',
 	'http://localhost:3000',
-	'http://localhost:4000',
-	'http://danwild.github.io'
+	'http://localhost:4000' //,
+	//'http://danwild.github.io'
 ];
 
 var corsOptions = {
@@ -53,7 +53,7 @@ app.get('/latest', cors(corsOptions), function(req, res){
 		res.sendFile(fileName, {}, function (err) {
 			if (err) {
 				console.log(stamp +' doesnt exist yet, trying previous interval..');
-				sendLatest(moment(targetMoment).subtract(6, 'hours'));
+				sendLatest(moment(targetMoment).subtract(1, 'days'));
 			}
 		});
 	}
@@ -93,7 +93,7 @@ app.get('/nearest', cors(corsOptions), function(req, res, next){
 		res.setHeader('Content-Type', 'application/json');
 		res.sendFile(fileName, {}, function (err) {
 			if(err) {
-				var nextTarget = searchForwards ? moment(targetMoment).add(6, 'hours') : moment(targetMoment).subtract(6, 'hours');
+				var nextTarget = searchForwards ? moment(targetMoment).add(1, 'days') : moment(targetMoment).subtract(1, 'days');
 				sendNearestTo(nextTarget);
 			}
 		});
@@ -115,7 +115,7 @@ app.get('/nearest', cors(corsOptions), function(req, res, next){
  */
 setInterval(function(){
 
-	run(moment.utc());
+	run(moment.utc(), 0);		// maybe change to malaysian time
 
 }, 900000);
 
@@ -123,11 +123,11 @@ setInterval(function(){
  *
  * @param targetMoment {Object} moment to check for new data
  */
-function run(targetMoment){
-
-	getGribData(targetMoment).then(function(response){
+function run(targetMoment, hourOffset){
+	getGribData(targetMoment, hourOffset).then(function(response){
 		if(response.stamp){
-			convertGribToJson(response.stamp, response.targetMoment);
+			convertGribToJson(response.stamp, response.targetMoment, 
+							  response.hourOffset, response.hourOffsetStr); 
 		}
 	});
 }
@@ -138,7 +138,7 @@ function run(targetMoment){
  *
  * @returns {*|promise}
  */
-function getGribData(targetMoment){
+function getGribData(targetMoment, hourOffset){
 
 	var deferred = Q.defer();
 
@@ -150,33 +150,50 @@ function getGribData(targetMoment){
             return;
         }
 
-		var stamp = moment(targetMoment).format('YYYYMMDD') + roundHours(moment(targetMoment).hour(), 6);
+		//var stamp = moment(targetMoment).format('YYYYMMDD') + roundHours(moment(targetMoment).hour(), 6);	//TODO
+		var hourOffsetStr = (new Array(4).join('0') + hourOffset).substr(-3);
+		var hourStamp = (new Array(4).join('0') + (hourOffset % 24).toString()).substr(-3);
+		var dateStamp = formatDateStamp(targetMoment, hourOffset);
+		//var stamp = moment(targetMoment).add(hourOffset, 'hours').format('YYYYMMDD') + hourStamp;	//TODO
+		var stamp = dateStamp + hourStamp;
+		var queryString = {
+		    file: 'gfs.t'+ roundHours(moment(targetMoment).hour(), 6) +'z.pgrb2.1p00.f' + hourOffsetStr,	//TODO
+		    lev_10_m_above_ground: 'on',
+		    lev_surface: 'on',
+		    var_TMP: 'on',
+		    var_UGRD: 'on',
+			var_VGRD: 'on',
+			var_PRATE: 'on',
+		    leftlon: 0,
+		    rightlon: 360,
+		    toplat: 90,
+		    bottomlat: -90,
+		    dir: '/gfs.' + moment(targetMoment).format('YYYYMMDD') + '/' + roundHours(moment(targetMoment).hour(), 6)	//TODO
+		};
+		const qsConstructor = qs => {
+		    let str = '';
+
+		    for (let i in qs) {
+		        str += `${i}=${qs[i]}&`;
+		    }
+
+		    return str;
+        };
+
+		console.log('GET', baseDir + '?' + qsConstructor(queryString));
 		request.get({
 			url: baseDir,
-			qs: {
-				file: 'gfs.t'+ roundHours(moment(targetMoment).hour(), 6) +'z.pgrb2.1p00.f000',
-				lev_10_m_above_ground: 'on',
-				lev_surface: 'on',
-				var_TMP: 'on',
-				var_UGRD: 'on',
-				var_VGRD: 'on',
-				leftlon: 0,
-				rightlon: 360,
-				toplat: 90,
-				bottomlat: -90,
-				dir: '/gfs.'+stamp
-			}
-
+			qs: queryString
 		}).on('error', function(err){
 			// console.log(err);
-			runQuery(moment(targetMoment).subtract(6, 'hours'));
+			runQuery(moment(targetMoment).subtract(1, 'days'));	//TODO
 
 		}).on('response', function(response) {
 
 			console.log('response '+response.statusCode + ' | '+stamp);
 
 			if(response.statusCode != 200){
-				runQuery(moment(targetMoment).subtract(6, 'hours'));
+				runQuery(moment(targetMoment).subtract(1, 'days'));
 			}
 
 			else {
@@ -193,7 +210,8 @@ function getGribData(targetMoment){
 					response.pipe(file);
 					file.on('finish', function() {
 						file.close();
-						deferred.resolve({stamp: stamp, targetMoment: targetMoment});
+						deferred.resolve({stamp: stamp, targetMoment: targetMoment, 
+										hourOffset: hourOffset, hourOffsetStr}); 
 					});
 
 				}
@@ -210,14 +228,16 @@ function getGribData(targetMoment){
 	return deferred.promise;
 }
 
-function convertGribToJson(stamp, targetMoment){
+function convertGribToJson(stamp, targetMoment, hourOffset, hourOffsetStr){
 
 	// mk sure we've got somewhere to put output
 	checkPath('json-data', true);
+	checkPath('temperature-data', true);
+	checkPath('precipitation-data', true);
 
 	var exec = require('child_process').exec, child;
 
-	child = exec('converter/bin/grib2json --data --output json-data/'+stamp+'.json --names --compact grib-data/'+stamp+'.f000',
+	child1 = exec('converter/bin/grib2json --data --output json-data/'+stamp+'.json --names --compact grib-data/'+stamp+'.f000',
 		{maxBuffer: 500*1024},
 		function (error, stdout, stderr){
 
@@ -226,23 +246,36 @@ function convertGribToJson(stamp, targetMoment){
 			}
 
 			else {
-				console.log("converted..");
+				console.log("converted :)");
 
 				// don't keep raw grib data
 				exec('rm grib-data/*');
 
-				// if we don't have older stamp, try and harvest one
-				var prevMoment = moment(targetMoment).subtract(6, 'hours');
-				var prevStamp = prevMoment.format('YYYYMMDD') + roundHours(prevMoment.hour(), 6);
+				// if we don't have newer stamp, try and harvest one 
+				var nextHourOffset = hourOffset + 3;
+				var nextHourOffsetStr = (new Array(4).join('0') + (nextHourOffset % 24)).substr(-3);
+				var nextDateStamp = formatDateStamp(targetMoment, nextHourOffset);
+				var nextStamp = nextDateStamp + nextHourOffsetStr;	//TODO
 
-				if(!checkPath('json-data/'+ prevStamp +'.json', false)){
+				if(!checkPath('json-data/'+ nextStamp +'.json', false)){
 
-					console.log("attempting to harvest older data "+ stamp);
-					run(prevMoment);
+					// extract temperature data
+					exec('python3 getTemp.py '+'json-data/'+stamp+'.json '+'temperature-data/'+stamp+'.js',
+					{maxBuffer: 500*1024},
+					function (error, stdout, stderr){
+
+						if(error){
+							console.log('exec error: ' + error);
+						} 
+					});
+
+					console.log("attempting to harvest newer data "+ nextStamp);	//TODO
+					run(targetMoment, nextHourOffset);
 				}
 
 				else {
-					console.log('got older, no need to harvest further');
+					console.log('got newer, still going to harvest next data '+ nextStamp);
+					run(targetMoment, nextHourOffset);
 				}
 			}
 		});
@@ -284,5 +317,18 @@ function checkPath(path, mkdir) {
     }
 }
 
+/**
+ *
+ * Format the date correctly based on the hour offset
+ * 
+ * @param targetMoment {Object} moment to check for new data
+ * @param hourOffset {Int} offset from target moment (forward)
+ * @returns {Object moment} 
+ */
+function formatDateStamp(targetMoment, hourOffset) {
+	var dayOffset = parseInt(hourOffset / 24);
+	return moment(targetMoment).add(dayOffset, 'days').format('YYYYMMDD');
+}
+
 // init harvest
-run(moment.utc());
+run(moment.utc(), 0);	// maybe change to malaysian time

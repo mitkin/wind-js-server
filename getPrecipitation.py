@@ -31,4 +31,4 @@ while (lat < 91):
 # print(len(data))
 
 with open(precipitation_file, "w") as write_file:
-    write_file.write("{'data': " + str(address_points) + "}")
+    write_file.write("{\"data\": " + str(address_points) + "}")

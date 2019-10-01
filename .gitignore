@@ -2,3 +2,5 @@
 node_modules
 grib-data
 json-data
+temperature-data
+precipitation-data

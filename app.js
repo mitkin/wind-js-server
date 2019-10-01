@@ -269,6 +269,16 @@ function convertGribToJson(stamp, targetMoment, hourOffset, hourOffsetStr){
 						} 
 					});
 
+					// extract precipitation data
+					exec('python3 getPrecipitation.py '+'json-data/'+stamp+'.json '+'precipitation-data/'+stamp+'.js',
+					{maxBuffer: 500*1024},
+					function (error, stdout, stderr){
+
+						if(error){
+							console.log('exec error: ' + error);
+						} 
+					});
+
 					console.log("attempting to harvest newer data "+ nextStamp);	//TODO
 					run(targetMoment, nextHourOffset);
 				}

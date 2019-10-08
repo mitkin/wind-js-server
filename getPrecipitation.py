@@ -13,7 +13,7 @@ long = -180
 with open(json_file, "r") as read_file:
     data = np.array(json.load(read_file)[3]['data'])
 
-data = 3*(data - np.min(data))/np.ptp(data)
+# data = 3*(data - np.min(data))/np.ptp(data)
 
 i = 0
 while (lat < 91):

@@ -197,28 +197,19 @@ function getGribData(targetMoment, hourOffset){
 			}
 
 			else {
-				// don't rewrite stamps
-				if(!checkPath('json-data/'+ stamp +'.json', false)) {
+				console.log('piping ' + stamp);
 
-					console.log('piping ' + stamp);
+				// mk sure we've got somewhere to put output
+				checkPath('grib-data', true);
 
-					// mk sure we've got somewhere to put output
-					checkPath('grib-data', true);
-
-					// pipe the file, resolve the valid time stamp
-					var file = fs.createWriteStream("grib-data/"+stamp+".f000");
-					response.pipe(file);
-					file.on('finish', function() {
-						file.close();
-						deferred.resolve({stamp: stamp, targetMoment: targetMoment, 
-										hourOffset: hourOffset, hourOffsetStr}); 
-					});
-
-				}
-				else {
-					console.log('already have '+ stamp +', not looking further');
-					deferred.resolve({stamp: false, targetMoment: false});
-				}
+				// pipe the file, resolve the valid time stamp
+				var file = fs.createWriteStream("grib-data/"+stamp+".f000");
+				response.pipe(file);
+				file.on('finish', function() {
+					file.close();
+					deferred.resolve({stamp: stamp, targetMoment: targetMoment, 
+									hourOffset: hourOffset, hourOffsetStr}); 
+				});
 			}
 		});
 

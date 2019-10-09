@@ -12,6 +12,91 @@ var baseDir ='http://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_1p00.pl';
 
 /**
  *
+ * Returns the distance between two points on the map
+ *
+ * @param pointOne first point on map
+ * @param pointTwo second point on map
+ * @returns {Number} 
+ */
+function calcDistance(pointOne, pointTwo){
+	var xDist = pointOne[1]-pointTwo[1]
+	var yDist = pointOne[0]-pointTwo[0]
+	return Math.sqrt(xDist*xDist + yDist*yDist);
+}
+  
+/**
+ *
+ * Helper function for calcDistance when comparing two rainSpots
+ *
+ * @param pointOne first point on map
+ * @param pointTwo second point on map
+ * @returns {Number} 
+ */
+function _calcDistance(pointOne, arrayTwo){
+	return arrayTwo.some(function(point) { return (calcDistance(pointOne, point) < 2) });
+}
+  
+/**
+ *
+ * Returns rain spots on the map
+ *
+ * @param points precipitation data
+ * @returns {Array} 
+ */
+function getRainSpots(points) {
+	var tempSpots = [];
+	t0 = performance.now();
+	for (i = 0; i < points.length; i += 1) {
+		if (tempSpots.length == 0) {
+			tempSpots.push([points[i]]);
+		} else {
+			inner:
+			for (j = tempSpots.length - 1; j >= 0; j -= 1) {
+				if (tempSpots[j].some(function(x) { return (calcDistance(points[i], x) < 2); })) {
+					if (tempSpots[j].some(function(x) { return (calcDistance(points[i], x) != 0); })) {
+						tempSpots[j].push(points[i]);
+						break inner;
+					} else {
+						console.error("Comparing the same point");
+					}
+				} else if (j == tempSpots.length - 1) {
+					tempSpots.push([points[i]]);
+				}
+			}
+		}
+	}
+	t1 = performance.now();
+	console.log(t1-t0, "milliseconds");
+	console.log("raintempSpots", tempSpots);
+	console.log(tempSpots.length);
+	var rainSpots = [];
+	var currNumSpots = rainSpots.length;
+	t0 = performance.now();
+	for (i = 0; i < tempSpots.length; i++) {
+		if (rainSpots.length == 0) {
+			rainSpots.push(tempSpots[i]);
+		} else {
+			inner:
+			for (j = 0; j < currNumSpots; j++) {
+				if (tempSpots[i].some(function(x) { return (_calcDistance(x, rainSpots[j])); })) {
+					rainSpots[j] = rainSpots[j].concat(tempSpots[i]);
+					break inner;
+				} else if (j == currNumSpots - 1) {
+					rainSpots.push(tempSpots[i]);
+				}
+			}
+		}
+		currNumSpots = rainSpots.length;
+	}
+	t1 = performance.now();
+	console.log(t1-t0, "milliseconds");
+	console.log("rainSpots", rainSpots);
+	console.log("rainSpots.length", rainSpots.length);
+	return rainSpots;
+}
+
+/**
+ *
  * Ping for new data every 15 mins
  *
  */

@@ -130,7 +130,7 @@ function convertGribToJson(stamp, targetMoment, hourOffset, hourOffsetStr){
 
 	var exec = require('child_process').exec, child;
 
-	child1 = exec('converter/bin/grib2json --data --output json-data/'+stamp+'.json --names --compact grib-data/'+stamp+'.f000',
+	child = exec('converter/bin/grib2json --data --output json-data/'+stamp+'.json --names --compact grib-data/'+stamp+'.f000',
 		{maxBuffer: 500*1024},
 		function (error, stdout, stderr){
 
@@ -153,7 +153,7 @@ function convertGribToJson(stamp, targetMoment, hourOffset, hourOffsetStr){
 				if(!checkPath('json-data/'+ nextStamp +'.json', false)){
 
 					// extract temperature data
-					exec('python3 getTemp.py '+'json-data/'+stamp+'.json '+'temperature-data/'+stamp+'.json',
+					exec('python3.6 getTemp.py '+'json-data/'+stamp+'.json '+'temperature-data/'+stamp+'.json',
 					{maxBuffer: 500*1024},
 					function (error, stdout, stderr){
 
@@ -163,7 +163,7 @@ function convertGribToJson(stamp, targetMoment, hourOffset, hourOffsetStr){
 					});
 
 					// extract precipitation data
-					exec('python3 getPrecipitation.py '+'json-data/'+stamp+'.json '+'precipitation-data/'+stamp+'.json',
+					exec('python3.6 getPrecipitation.py '+'json-data/'+stamp+'.json '+'precipitation-data/'+stamp+'.json',
 					{maxBuffer: 500*1024},
 					function (error, stdout, stderr){
 

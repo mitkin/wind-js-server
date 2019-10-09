@@ -52,14 +52,14 @@ function getGribData(targetMoment, hourOffset){
             return;
         }
 
-		//var stamp = moment(targetMoment).format('YYYYMMDD') + roundHours(moment(targetMoment).hour(), 6);	//TODO
+		//var stamp = moment(targetMoment).format('YYYYMMDD') + roundHours(moment(targetMoment).hour(), 6);	
 		var hourOffsetStr = (new Array(4).join('0') + hourOffset).substr(-3);
 		var hourStamp = (new Array(4).join('0') + (hourOffset % 24).toString()).substr(-3);
 		var dateStamp = formatDateStamp(targetMoment, hourOffset);
-		//var stamp = moment(targetMoment).add(hourOffset, 'hours').format('YYYYMMDD') + hourStamp;	//TODO
+		//var stamp = moment(targetMoment).add(hourOffset, 'hours').format('YYYYMMDD') + hourStamp;	
 		var stamp = dateStamp + hourStamp;
 		var queryString = {
-		    file: 'gfs.t'+ roundHours(moment(targetMoment).hour(), 6) +'z.pgrb2.1p00.f' + hourOffsetStr,	//TODO
+		    file: 'gfs.t'+ roundHours(moment(targetMoment).hour(), 6) +'z.pgrb2.1p00.f' + hourOffsetStr,	
 		    lev_10_m_above_ground: 'on',
 		    lev_surface: 'on',
 		    var_TMP: 'on',
@@ -148,12 +148,12 @@ function convertGribToJson(stamp, targetMoment, hourOffset, hourOffsetStr){
 				var nextHourOffset = hourOffset + 3;
 				var nextHourOffsetStr = (new Array(4).join('0') + (nextHourOffset % 24)).substr(-3);
 				var nextDateStamp = formatDateStamp(targetMoment, nextHourOffset);
-				var nextStamp = nextDateStamp + nextHourOffsetStr;	//TODO
+				var nextStamp = nextDateStamp + nextHourOffsetStr;	
 
 				if(!checkPath('json-data/'+ nextStamp +'.json', false)){
 
 					// extract temperature data
-					exec('python3.6 getTemp.py '+'json-data/'+stamp+'.json '+'temperature-data/'+stamp+'.json',
+					exec('python3 getTemp.py '+'json-data/'+stamp+'.json '+'temperature-data/'+stamp+'.json',
 					{maxBuffer: 500*1024},
 					function (error, stdout, stderr){
 
@@ -163,7 +163,7 @@ function convertGribToJson(stamp, targetMoment, hourOffset, hourOffsetStr){
 					});
 
 					// extract precipitation data
-					exec('python3.6 getPrecipitation.py '+'json-data/'+stamp+'.json '+'precipitation-data/'+stamp+'.json',
+					exec('python3 getPrecipitation.py '+'json-data/'+stamp+'.json '+'precipitation-data/'+stamp+'.json',
 					{maxBuffer: 500*1024},
 					function (error, stdout, stderr){
 
@@ -172,7 +172,7 @@ function convertGribToJson(stamp, targetMoment, hourOffset, hourOffsetStr){
 						} 
 					});
 
-					console.log("attempting to harvest newer data "+ nextStamp);	//TODO
+					console.log("attempting to harvest newer data "+ nextStamp);	
 					run(targetMoment, nextHourOffset);
 				}
 

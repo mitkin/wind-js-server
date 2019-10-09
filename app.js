@@ -48,7 +48,7 @@ function getGribData(targetMoment, hourOffset){
 		// only go 2 weeks deep
 		var newDate = moment(targetMoment.startOf('day'), "DD-MM-YYYY").add(hourOffset, 'hours');
 		console.log(newDate.diff(targetMoment, 'days'));
-		if (newDate.diff(targetMoment, 'days') > 0){
+		if (newDate.diff(targetMoment, 'days') > 15){
 			console.log('hit limit, harvest complete or there is a big gap in data..');
 			process.exit(0);
             return;

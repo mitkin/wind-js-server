@@ -212,6 +212,8 @@ function convertGribToJson(stamp, targetMoment, hourOffset, hourOffsetStr){
 
 	// mk sure we've got somewhere to put output
 	checkPath('json-data', true);
+	checkPath('temperature-tempData', true);
+	checkPath('precipitation-tempData', true);
 	checkPath('temperature-data', true);
 	checkPath('precipitation-data', true);
 
@@ -240,7 +242,7 @@ function convertGribToJson(stamp, targetMoment, hourOffset, hourOffsetStr){
 				if(!checkPath('json-data/'+ nextStamp +'.json', false)){
 
 					// extract temperature data
-					exec('python3 getTemp.py '+'json-data/'+stamp+'.json '+'temperature-data/'+stamp+'.json',
+					exec('python3 getTemp.py '+'json-data/'+stamp+'.json '+'temperature-tempData/'+stamp+'.json',
 					{maxBuffer: 500*1024},
 					function (error, stdout, stderr){
 
@@ -250,7 +252,7 @@ function convertGribToJson(stamp, targetMoment, hourOffset, hourOffsetStr){
 					});
 
 					// extract precipitation data
-					exec('python3 getPrecipitation.py '+'json-data/'+stamp+'.json '+'precipitation-data/'+stamp+'.json',
+					exec('python3 getPrecipitation.py '+'json-data/'+stamp+'.json '+'precipitation-tempData/'+stamp+'.json',
 					{maxBuffer: 500*1024},
 					function (error, stdout, stderr){
 

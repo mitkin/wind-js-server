@@ -10,6 +10,104 @@ var app = express();
 var port = process.env.PORT || 7000;
 var baseDir ='http://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_1p00.pl';
 
+// cors config
+var whitelist = [
+	'http://localhost:63342',
+	'http://localhost:3000',
+	'http://localhost:4000',
+	'http://danwild.github.io'
+];
+
+var corsOptions = {
+	origin: function(origin, callback){
+		var originIsWhitelisted = whitelist.indexOf(origin) !== -1;
+		callback(null, originIsWhitelisted);
+	}
+};
+
+app.listen(port, function(err){
+	console.log("running server on port "+ port);
+});
+
+app.get('/', cors(corsOptions), function(req, res){
+    res.send('hello wind-js-server.. go to /latest for wind data..');
+});
+
+app.get('/alive', cors(corsOptions), function(req, res){
+	res.send('wind-js-server is alive');
+});
+
+app.get('/latest', cors(corsOptions), function(req, res){
+
+	/**
+	 * Find and return the latest available 6 hourly pre-parsed JSON data
+	 *
+	 * @param targetMoment {Object} UTC moment
+	 */
+	function sendLatest(targetMoment){
+
+		var stamp = moment(targetMoment).format('YYYYMMDD') + roundHours(moment(targetMoment).hour(), 6);
+		var fileName = __dirname +"/json-data/"+ stamp +".json";
+
+		res.setHeader('Content-Type', 'application/json');
+		res.sendFile(fileName, {}, function (err) {
+			if (err) {
+				console.log(stamp +' doesnt exist yet, trying previous interval..');
+				sendLatest(moment(targetMoment).subtract(6, 'hours'));
+			}
+		});
+	}
+
+	sendLatest(moment().utc());
+
+});
+
+app.get('/nearest', cors(corsOptions), function(req, res, next){
+
+	var time = req.query.timeIso;
+	var limit = req.query.searchLimit;
+	var searchForwards = false;
+
+	/**
+	 * Find and return the nearest available 6 hourly pre-parsed JSON data
+	 * If limit provided, searches backwards to limit, then forwards to limit before failing.
+	 *
+	 * @param targetMoment {Object} UTC moment
+	 */
+	function sendNearestTo(targetMoment){
+
+		if( limit && Math.abs( moment.utc(time).diff(targetMoment, 'days'))  >= limit) {
+			if(!searchForwards){
+				searchForwards = true;
+				sendNearestTo(moment(targetMoment).add(limit, 'days'));
+				return;
+			}
+			else {
+				return next(new Error('No data within searchLimit'));
+			}
+		}
+
+		var stamp = moment(targetMoment).format('YYYYMMDD') + roundHours(moment(targetMoment).hour(), 6);
+		var fileName = __dirname +"/json-data/"+ stamp +".json";
+
+		res.setHeader('Content-Type', 'application/json');
+		res.sendFile(fileName, {}, function (err) {
+			if(err) {
+				var nextTarget = searchForwards ? moment(targetMoment).add(6, 'hours') : moment(targetMoment).subtract(6, 'hours');
+				sendNearestTo(nextTarget);
+			}
+		});
+	}
+
+	if(time && moment(time).isValid()){
+		sendNearestTo(moment.utc(time));
+	}
+	else {
+		return next(new Error('Invalid params, expecting: timeIso=ISO_TIME_STRING'));
+	}
+
+});
+
 /**
  *
  * Ping for new data every 15 mins
@@ -48,7 +146,7 @@ function getGribData(targetMoment, hourOffset){
 		// only go 2 weeks deep
 		var newDate = moment(targetMoment.startOf('day'), "DD-MM-YYYY").add(hourOffset, 'hours');
 		console.log("Day #", newDate.diff(targetMoment, 'days'))
-		if (newDate.diff(targetMoment, 'days') > 15){
+		if (newDate.diff(targetMoment, 'days') > 0){
 			console.log('hit limit, harvest complete or there is a big gap in data..');
 			process.exit(0);
             return;
